@@ -34,36 +34,44 @@ function changeVolume(val) {
     audio.volume = val;
 }
 
-// --- Bluetooth Logic (Phase 1: Discovery) ---
 async function connectBT() {
     const statusText = document.getElementById('status');
     const connInterface = document.getElementById('connection-interface');
     const musicInterface = document.getElementById('music-interface');
     
     try {
-        // Trigger browser Bluetooth picker
+        // This tells the browser: "Show me everything you find"
         const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: ['battery_service'] 
+            acceptAllDevices: true
+            // Note: We removed the 'optionalServices' filter to make it more general
         });
 
-        // SUCCESS: Swap the interfaces
+        // Update UI once a device is picked
+        statusText.innerText = "Connecting to " + device.name + "...";
+        
+        // Connect to the device GATT Server (required by some browsers to finalize connection)
+        const server = await device.gatt.connect();
+
+        // SUCCESS: Show the Music Player
         connInterface.style.display = "none";
         musicInterface.style.display = "block";
-        console.log("Connected to", device.name);
+        
+        console.log("Successfully connected to:", device.name);
+
+        // Listen for accidental disconnection
+        device.addEventListener('gattserverdisconnected', onDisconnected);
 
     } catch (error) {
-        console.log("User cancelled or error: " + error);
-        statusText.innerText = "Connection Failed. Try again.";
+        console.log("Scan cancelled or failed: " + error);
+        statusText.innerText = "No device selected.";
         statusText.style.color = "red";
     }
 }
 
-function disconnectBT() {
-    // Return to the connection screen
-    document.getElementById('connection-interface').style.display = "block";
-    document.getElementById('music-interface').style.display = "none";
-    pauseMusic(); // Stop music if it's playing
+function onDisconnected(event) {
+    const device = event.target;
+    console.log('Device ' + device.name + ' is disconnected.');
+    disconnectBT(); // Reset the UI
 }
 // Simulate Live IoT Data
 setInterval(() => {
@@ -83,4 +91,5 @@ function toggleLED() {
     const btn = document.getElementById('led-btn');
     btn.innerText = ledState ? "ON" : "OFF";
     btn.style.background = ledState ? "#28a745" : "#dc3545";
+
 }
